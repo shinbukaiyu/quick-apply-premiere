@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --bg: #232323; --fg: #b8b8b8; --hi: #fff; --dim: #7d7d7d; --on: #2d6fd6; --line: #3a3a3a;
+          --field: #111; --chip: #3a3a3a; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+               font: 12px -apple-system, "Segoe UI", sans-serif; overflow: hidden; user-select: none; }
+  #app { display: flex; flex-direction: column; height: 100%; padding: 6px; box-sizing: border-box; gap: 6px; }
+  #top { display: flex; gap: 6px; }
+  .iconbtn { width: 30px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 4px;
+             background: #1b1b1b; color: var(--fg); cursor: pointer; display: grid; place-items: center; flex: none; }
+  .iconbtn:hover { color: var(--hi); }
+  .iconbtn.on { color: var(--hi); background: var(--on); border-color: var(--on); }
+  svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2;
+        stroke-linecap: round; stroke-linejoin: round; }
+  #searchwrap { flex: 1; display: flex; align-items: center; gap: 6px; background: var(--field);
+                border: 2px solid var(--on); border-radius: 5px; padding: 0 8px; min-width: 0; }
+  #q { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--hi); font: 13px inherit;
+       font-family: inherit; height: 24px; }
+  #count { color: var(--dim); font-size: 11px; white-space: nowrap; }
+
+  #list { flex: 1; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; background: #1a1a1a; }
+  .row { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; cursor: default;
+         white-space: nowrap; }
+  .row .ic { flex: none; width: 14px; height: 14px; color: var(--dim); }
+  .row .nm { color: #ddd; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 40px; }
+  .row .nm b { color: var(--hi); font-weight: 600; }
+  .row .pt { color: var(--dim); overflow: hidden; text-overflow: ellipsis; flex: 1 1 0; min-width: 0; }
+  .row .kb { flex: none; color: var(--dim); font-size: 11px; background: #2a2a2a; padding: 1px 5px; border-radius: 3px; }
+  .row .run { display: none; flex: none; border: 0; border-radius: 4px; background: #1f4fa3; color: #fff;
+              font: inherit; padding: 2px 14px; cursor: pointer; }
+  .row.sel { background: var(--on); }
+  .row.sel .nm, .row.sel .pt, .row.sel .ic { color: #fff; }
+  .row.sel .pt { opacity: .8; }
+  .row.sel .run { display: block; }
+  .row.sel .kb { background: rgba(0,0,0,.25); color: #fff; }
+  .empty { padding: 16px; color: var(--dim); text-align: center; }
+
+  #foot { display: grid; grid-template-columns: auto auto; justify-content: center; gap: 4px 10px;
+          align-items: center; font-weight: 600; }
+  #foot label { text-align: right; color: #ccc; }
+  .chip { background: var(--chip); border: 0; border-radius: 3px; color: #ddd; font: 12px inherit; font-family: inherit;
+          padding: 2px 8px; justify-self: start; }
+  #kbd { cursor: pointer; }
+  #kbd:hover { background: #4a4a4a; }
+  #kbd.wait { background: #a36a1f; color: #fff; }
+  #msg { text-align: center; height: 14px; font-size: 11px; color: var(--dim); white-space: nowrap;
+         overflow: hidden; text-overflow: ellipsis; }
+  #msg.err { color: #ff7a6b; }
+
+  /* Settings */
+  #settings { display: none; position: absolute; inset: 40px 6px 6px; background: var(--bg); overflow-y: auto;
+              border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; box-sizing: border-box; user-select: text; }
+  #settings.open { display: block; }
+  #settings h3 { margin: 12px 0 6px; font-size: 12px; color: #ddd; }
+  #settings h3:first-child { margin-top: 0; }
+  #settings label { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+  #settings textarea, #settings input[type=number] { background: var(--field); color: #ddd; border: 1px solid var(--line);
+              border-radius: 4px; font: 11px Menlo, Consolas, monospace; }
+  #settings textarea { width: 100%; height: 54px; box-sizing: border-box; resize: vertical; }
+  #settings input[type=number] { width: 60px; padding: 2px 4px; }
+  #settings .btn { background: #3a3a3a; border: 0; border-radius: 4px; color: #ddd; padding: 4px 10px;
+                   font: inherit; cursor: pointer; margin: 4px 4px 0 0; }
+  #settings .btn:hover { background: #4a4a4a; }
+  #keylist { width: 100%; border-collapse: collapse; font-size: 11px; }
+  #keylist td { padding: 3px 4px; border-bottom: 1px solid #2c2c2c; }
+  #keylist td:first-child { white-space: nowrap; color: var(--hi); }
+  #keylist .x { cursor: pointer; color: var(--dim); text-align: right; }
+  #keylist .x:hover { color: #ff7a6b; }
+  .hint { color: var(--dim); font-size: 11px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <button id="gear" class="iconbtn" title="Settings">
+      <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
+    </button>
+    <div id="searchwrap">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <input id="q" type="text" spellcheck="false" autocomplete="off" placeholder="Search effects, transitions, sequences, clips, scripts, commands…">
+      <span id="count"></span>
+    </div>
+  </div>
+  <div id="list"></div>
+  <div id="foot">
+    <label>Run Command</label><span class="chip">Return</span>
+    <label>Keyboard Shortcut</label><button id="kbd" class="chip" title="Click, then press a key combo. Esc = cancel, Backspace = clear">Unassigned</button>
+  </div>
+  <div id="msg"></div>
+
+  <div id="settings">
+    <h3>Search in</h3>
+    <div id="cats"></div>
+
+    <h3>Script folders <span class="hint">(.jsx / .jsxbin, one folder per line, subfolders included)</span></h3>
+    <textarea id="scriptDirs" spellcheck="false"></textarea>
+    <button class="btn" data-add="scriptDirs">Add folder…</button>
+
+    <h3>Motion Graphics Template folders <span class="hint">(.mogrt)</span></h3>
+    <textarea id="mogrtDirs" spellcheck="false"></textarea>
+    <button class="btn" data-add="mogrtDirs">Add folder…</button>
+
+    <h3>Options</h3>
+    <label>Transition duration <input id="transDur" type="number" min="1" step="1"> frames</label>
+    <label><input id="keepQuery" type="checkbox"> Keep search text after running</label>
+
+    <h3>Open Quick Apply</h3>
+    <label>Hotkey <button id="hotkey" class="chip" style="cursor:pointer">Cmd+F</button></label>
+    <div class="hint">Works anywhere while Premiere is the front app (macOS) — pops up the floating search window.
+      Click the button, then press a combo. In other apps the keys behave as normal.</div>
+
+    <h3>Command shortcuts</h3>
+    <div class="hint">Optional: select a command, click the button next to “Keyboard Shortcut”, then press a combo
+      (needs Ctrl / Cmd / Alt, or F1–F12). Fires while the Quick Apply window has focus.</div>
+    <table id="keylist"></table>
+
+    <div style="margin-top:12px">
+      <button class="btn" id="reindex">Rebuild index</button>
+      <button class="btn" id="closeSettings">Done</button>
+    </div>
+  </div>
+</div>
+<script src="js/hotkey.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
